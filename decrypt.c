@@ -4,7 +4,7 @@
 
 int main(int argc, char** argv){
 
-	char *exec_args[]={"ccrypt","-d","-K","123456",NULL};
+	char *exec_args[]={"ccrypt","-d","-K","123456",argv[1],NULL};
 
 	execvp("ccrypt",exec_args);
 
