@@ -87,6 +87,7 @@ void saveOperation(OPERATION operations)
 
 OPERATION copyOperation()
 {
+    // Em vez de server_max_info talvez server_status de forma a dar update à informação
     OPERATION operations;
     int fo = open("server_max_info",O_RDWR);
     if(fo < 0)
