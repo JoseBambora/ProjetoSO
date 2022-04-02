@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-all: nop gcompress gdecompress bcompress bdecompress encrypt decrypt sdstore
+all: nop gcompress gdecompress bcompress bdecompress encrypt decrypt sdstore sdstored
 
 gcompress: gcompress.o
 
@@ -35,5 +35,9 @@ sdstore: sdstore.o
 
 sdstore.o: sdstore.c
 
+sdstored: sdstored.o
+
+sdstored.o: sdstored.c
+
 clean:
-	rm -f *compress *decompress encrypt decrypt nop *.o sdstore
+	rm -f *compress *decompress encrypt decrypt nop *.o sdstore sdstored server_status server_max_info
