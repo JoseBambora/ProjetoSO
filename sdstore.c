@@ -108,20 +108,24 @@ int main(int argc, char** argv)
     }
     if(strcmp(argv[1],"proc-file") == 0)
     {
+        // Se não for possivel atender o pedido, interromper o processo aqui (max_operações == operações atuais)
         OPERATION operations = copyOperation();
-        int opindex = 0;
+        int opindex = 0; // depois quando tivermos varios pedidos controlar melhor esta variavel
+        // Talvez meter esta parte concorrente e usar semáforos de forma a não devolver valores errados.
         for(int i = 4; i < argc; i++)
         {
-            strcpy(operations.tasks[opindex++],argv[i]);
+            strcat(operations.tasks[opindex],argv[i]);
+            strcat(operations.tasks[opindex]," ");
             int n = numopera(argv[i]);
             operations.ope[n].number++;
         }
-        operations.numtasks = opindex;
-        saveOperation(operations);
+        operations.numtasks = opindex + 1;
+        saveOperation(operations); 
         int f1 = dup(1);
         write(f1,"Processing\n",11);
         int fileWrite = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
 	    dup2(fileWrite,1);
+        // Programa está de forma sequencial devido a problemas de concorrência
         if(argc > 4)
         {
             if(fork() == 0)

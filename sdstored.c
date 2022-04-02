@@ -40,7 +40,7 @@ ssize_t readln(int fd, char *line, size_t size)
     else r = i;
     return r;
 }
-
+// Ainda falta guardar a pasta aonde estarão guardados os executáveis
 int main(int argc, char** argv)
 {
     MAXOPERATION o[7];
