@@ -65,15 +65,15 @@ int main(int argc, char** argv)
         int f2 = open("server_max_info",O_CREAT | O_TRUNC | O_WRONLY, 0660);
         write(f2,o,sizeof(o));
         close(f2);
+        /*
         f2 = open("server_max_info",O_RDONLY);
         MAXOPERATION r[7];
         read(f2,r,sizeof(r));
-        /*
         for(int i = 0; i < 7; i++)
         {
             printf("%s %d %d\n",r[i].operation, r[i].max, r[i].number);
         }
-        */
+        */   
     }
     return 0;
 }

@@ -39,15 +39,6 @@ void execname(char *src, char *result)
     result[j] = '\0';
 }
 
-void applyexec(char *exec_src, char*f1)
-{
-    int i;
-    for(i = 0; exec_src[i] != '\0'; i++);
-    char exec[i+3];
-    execname(exec_src,exec);
-    execlp(exec,exec,f1,NULL);
-    perror("ERRO\n");
-}
 
 void printStatus()
 {
@@ -100,6 +91,29 @@ OPERATION copyOperation()
     return operations;
 }
 
+void removeauxfiles()
+{
+    if(fork() == 0)
+        execlp("rm","rm","aux1",NULL);
+    if(fork() == 0)
+        execlp("rm","rm","aux2",NULL);
+    wait(NULL);
+    wait(NULL);
+}
+
+void applyexec(char *exec_src, char*f1str,int f1, int f2)
+{
+    lseek(f1,0,SEEK_CUR);
+    lseek(f2,0,SEEK_CUR);
+    dup2(f2,1);
+    int i;
+    for(i = 0; exec_src[i] != '\0'; i++);
+    char exec[i+3];
+    execname(exec_src,exec);
+    execlp(exec,exec,f1str,NULL);
+    perror("ERRO\n");
+}
+
 int main(int argc, char** argv)
 {
     if(argc == 2)
@@ -124,24 +138,39 @@ int main(int argc, char** argv)
         saveOperation(operations); 
         int f1 = dup(1);
         write(f1,"Processing\n",11);
-        int fileWrite = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
-	    dup2(fileWrite,1);
+        int fileRead = open(argv[indexler],O_RDONLY);
+        int faux1 = open("aux1",O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int faux2 = open("aux2",O_CREAT | O_TRUNC | O_RDWR, 0660);
         // Programa está de forma sequencial devido a problemas de concorrência
         if(argc > 4)
         {
             if(fork() == 0)
-                applyexec(argv[4],argv[indexler]);
-            else
-                wait(NULL);
+                applyexec(argv[4],argv[indexler],fileRead,faux1);
         }
-        for(int i = 4; i < argc; i++)
+        for(int i = 5; i < argc; i++)
         {
             if(fork() == 0)
-                applyexec(argv[i],argv[indexescrever]);
-            else
-                wait(NULL);
+            {
+                if(i%2 == 1)
+                    applyexec(argv[4],"aux1",faux1,faux2);
+                else
+                    applyexec(argv[4],"aux2",faux2,faux1);
+            }
         }
-        close(fileWrite);
+        for(int i = 4; i < argc; i++)
+            wait(NULL);
+        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
+        if(fork() == 0)
+        {
+            if(argc%2 == 0)
+                applyexec("nop","aux2",faux2,finalfile);
+            else
+                applyexec("nop","aux1",faux1,finalfile);
+        }
+        else
+            wait(NULL);
+        removeauxfiles();
+        close(finalfile);
         write(f1,"Concluded\n",10);
     }
     return 0;
