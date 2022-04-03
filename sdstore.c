@@ -62,7 +62,7 @@ void printStatus()
     {
         int n1 = operations.ope[i].max;
         int n2 = operations.ope[i].number;
-        sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operations.ope[i].operation,n1,n2);
+        sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operations.ope[i].operation,n2,n1);
         int i;
         for(i = 0; escrever[i] != '\0'; i++);
         write(1,escrever,i);
