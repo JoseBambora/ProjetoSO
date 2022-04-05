@@ -101,10 +101,9 @@ void removeauxfiles()
     wait(NULL);
 }
 
-void applyexec(char *exec_src, char*f1str,int f1, int f2)
+void applyexec(char *exec_src, char*f1str,char *f2str)
 {
-    lseek(f1,0,SEEK_CUR);
-    lseek(f2,0,SEEK_CUR);
+    int f2 = open(f2str,O_WRONLY);
     dup2(f2,1);
     int i;
     for(i = 0; exec_src[i] != '\0'; i++);
@@ -138,34 +137,38 @@ int main(int argc, char** argv)
         saveOperation(operations); 
         int f1 = dup(1);
         write(f1,"Processing\n",11);
-        int fileRead = open(argv[indexler],O_RDONLY);
-        int faux1 = open("aux1",O_CREAT | O_TRUNC | O_RDWR, 0660);
-        int faux2 = open("aux2",O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int faux1 = open("aux1",O_CREAT | O_TRUNC, 0660);
+        int faux2 = open("aux2",O_CREAT | O_TRUNC, 0660);
+        close(faux1);
+        close(faux2);
         // Programa está de forma sequencial devido a problemas de concorrência
         if(argc > 4)
         {
             if(fork() == 0)
-                applyexec(argv[4],argv[indexler],fileRead,faux1);
+                applyexec(argv[4],argv[indexler],"aux1");
+            else
+                wait(NULL);
         }
         for(int i = 5; i < argc; i++)
         {
             if(fork() == 0)
             {
                 if(i%2 == 1)
-                    applyexec(argv[4],"aux1",faux1,faux2);
+                    applyexec(argv[i],"aux1","aux2");
                 else
-                    applyexec(argv[4],"aux2",faux2,faux1);
+                    applyexec(argv[i],"aux2","aux2");
             }
+            else
+                wait(NULL);
         }
-        for(int i = 4; i < argc; i++)
-            wait(NULL);
-        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
+        int finalfile = open(argv[3],O_CREAT | O_TRUNC, 0660);
+        close(finalfile);
         if(fork() == 0)
         {
             if(argc%2 == 0)
-                applyexec("nop","aux2",faux2,finalfile);
+                applyexec("nop","aux2",argv[3]);
             else
-                applyexec("nop","aux1",faux1,finalfile);
+                applyexec("nop","aux1",argv[3]);
         }
         else
             wait(NULL);
