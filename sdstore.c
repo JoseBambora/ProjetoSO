@@ -101,15 +101,17 @@ void removeauxfiles()
     wait(NULL);
 }
 
-void applyexec(char *exec_src, char*f1str,char *f2str)
+void applyexec(char *exec_src, int f1, int f2)
 {
-    int f2 = open(f2str,O_WRONLY);
+    lseek(f1,SEEK_SET,0);
+    lseek(f2,SEEK_SET,0);
     dup2(f2,1);
+    dup2(f1,0);
     int i;
     for(i = 0; exec_src[i] != '\0'; i++);
     char exec[i+3];
     execname(exec_src,exec);
-    execlp(exec,exec,f1str,NULL);
+    execlp(exec,exec,NULL);
     perror("ERRO\n");
 }
 
@@ -137,15 +139,15 @@ int main(int argc, char** argv)
         saveOperation(operations); 
         int f1 = dup(1);
         write(f1,"Processing\n",11);
-        int faux1 = open("aux1",O_CREAT | O_TRUNC, 0660);
-        int faux2 = open("aux2",O_CREAT | O_TRUNC, 0660);
-        close(faux1);
-        close(faux2);
+        int fread = open(argv[indexler],O_RDONLY);
+        int faux1 = open("aux1",O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int faux2 = open("aux2",O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
         // Programa está de forma sequencial devido a problemas de concorrência
         if(argc > 4)
         {
             if(fork() == 0)
-                applyexec(argv[4],argv[indexler],"aux1");
+                applyexec(argv[4],fread,faux1);
             else
                 wait(NULL);
         }
@@ -154,26 +156,27 @@ int main(int argc, char** argv)
             if(fork() == 0)
             {
                 if(i%2 == 1)
-                    applyexec(argv[i],"aux1","aux2");
+                    applyexec(argv[i],faux1,faux2);
                 else
-                    applyexec(argv[i],"aux2","aux2");
+                    applyexec(argv[i],faux2,faux1);
             }
             else
                 wait(NULL);
         }
-        int finalfile = open(argv[3],O_CREAT | O_TRUNC, 0660);
-        close(finalfile);
         if(fork() == 0)
         {
             if(argc%2 == 0)
-                applyexec("nop","aux2",argv[3]);
+                applyexec("nop",faux2,finalfile);
             else
-                applyexec("nop","aux1",argv[3]);
+                applyexec("nop",faux1,finalfile);
         }
         else
             wait(NULL);
         removeauxfiles();
         close(finalfile);
+        close(fread);
+        close(faux1);
+        close(faux2);
         write(f1,"Concluded\n",10);
     }
     return 0;
