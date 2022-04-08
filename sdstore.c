@@ -39,7 +39,6 @@ void execname(char *src, char *result)
     result[j] = '\0';
 }
 
-
 void printStatus()
 {
     OPERATION operations;
@@ -91,28 +90,24 @@ OPERATION copyOperation()
     return operations;
 }
 
-void removeauxfiles()
+void applyexec(char *exec_src)
 {
-    if(fork() == 0)
-        execlp("rm","rm","aux1",NULL);
-    if(fork() == 0)
-        execlp("rm","rm","aux2",NULL);
-    wait(NULL);
-    wait(NULL);
-}
-
-void applyexec(char *exec_src, int f1, int f2)
-{
-    lseek(f1,SEEK_SET,0);
-    lseek(f2,SEEK_SET,0);
-    dup2(f2,1);
-    dup2(f1,0);
     int i;
     for(i = 0; exec_src[i] != '\0'; i++);
     char exec[i+3];
     execname(exec_src,exec);
     execlp(exec,exec,NULL);
     perror("ERRO\n");
+    _exit(1);
+}
+
+void closepipes(int **pipes, int argc)
+{
+    for(int i = 5; i < argc+1;i++)
+    {
+        close(pipes[i][1]);
+        close(pipes[i][0]);
+    }
 }
 
 int main(int argc, char** argv)
@@ -137,46 +132,51 @@ int main(int argc, char** argv)
         }
         operations.numtasks = opindex + 1;
         saveOperation(operations); 
+        // Começa as operações do ficheiro
         int f1 = dup(1);
         write(f1,"Processing\n",11);
         int fread = open(argv[indexler],O_RDONLY);
-        int faux1 = open("aux1",O_CREAT | O_TRUNC | O_RDWR, 0660);
-        int faux2 = open("aux2",O_CREAT | O_TRUNC | O_RDWR, 0660);
         int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
-        // Programa está de forma sequencial devido a problemas de concorrência
+        int **pipes = (int **) malloc(sizeof (int *) * argc+1);
+        for(int i = 5; i < argc+1;i++)
+            pipes[i] = (int *) malloc(sizeof (int) * 2);
+        for(int i = 5; i < argc+1;i++)
+            pipe(pipes[i]);
+        // Aplica a primeira operação ao ficheiro de leitura
         if(argc > 4)
         {
             if(fork() == 0)
-                applyexec(argv[4],fread,faux1);
-            else
-                wait(NULL);
+            {
+                dup2(fread,0);
+                dup2(pipes[5][1],1);
+                closepipes(pipes,argc);
+                applyexec(argv[4]);
+            }
         }
+        // Vai aplicando as restantes operações
         for(int i = 5; i < argc; i++)
         {
             if(fork() == 0)
             {
-                if(i%2 == 1)
-                    applyexec(argv[i],faux1,faux2);
-                else
-                    applyexec(argv[i],faux2,faux1);
+                dup2(pipes[i][0],0);
+                dup2(pipes[i+1][1],1);
+                closepipes(pipes,argc);
+                applyexec(argv[i]);
             }
-            else
-                wait(NULL);
         }
+        // Copia o resultado da ultima operação para o ficheiro resultante
         if(fork() == 0)
         {
-            if(argc%2 == 0)
-                applyexec("nop",faux2,finalfile);
-            else
-                applyexec("nop",faux1,finalfile);
+            dup2(pipes[argc][0],0);
+            dup2(finalfile,1);
+            closepipes(pipes,argc);
+            applyexec("nop");
         }
-        else
+        closepipes(pipes,argc);
+        for(int i = 4; i < argc+1;i++)
             wait(NULL);
-        removeauxfiles();
         close(finalfile);
         close(fread);
-        close(faux1);
-        close(faux2);
         write(f1,"Concluded\n",10);
     }
     return 0;

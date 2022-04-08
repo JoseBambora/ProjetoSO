@@ -3,7 +3,12 @@
 #include <fcntl.h>
 
 int main(int argc, char** argv){
-	execlp("gzip", "gzip","-c","-k","-d",argv[1],NULL);
+
+	char *exec_args[]={"gzip","-d",NULL};
+
+	execvp("gzip",exec_args);
+
 	perror("error executing command");	
+
 	return 0;
 }
