@@ -43,6 +43,13 @@ ssize_t readln(int fd, char *line, size_t size)
 // Ainda falta guardar a pasta aonde estarão guardados os executáveis
 int main(int argc, char** argv)
 {
+    char*caminho = argv[2];
+    char pathString[1024];
+    strcpy (pathString, caminho);
+    //int size = strlen(caminho);
+    int fpath = open("path",O_CREAT | O_TRUNC | O_WRONLY, 0660);
+    write(fpath,pathString, sizeof(pathString));
+    close (fpath);
     MAXOPERATION o[7];
     int f1 = open(argv[1],O_RDONLY);
     char buf[1024];

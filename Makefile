@@ -40,4 +40,4 @@ sdstored: sdstored.o
 sdstored.o: sdstored.c
 
 clean:
-	rm -f *compress *decompress encrypt decrypt nop *.o sdstore sdstored server_status server_max_info
+	rm -f *compress *decompress encrypt decrypt nop *.o sdstore sdstored server_status server_max_info path

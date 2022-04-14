@@ -86,8 +86,25 @@ OPERATION copyOperation()
         exit(1);
     }
     read(fo,operations.ope,sizeof(operations.ope));
+    operations.numtasks = 0;
     close(fo);
     return operations;
+}
+
+OPERATION readStatus()
+{
+    OPERATION operations;
+    int fo = open("server_status",O_RDONLY);
+    if(fo < 0)
+        operations = copyOperation();
+    else
+        read(fo,&operations,sizeof(operations));
+    return operations;
+}
+
+int isOperationValid (int number, int max){
+    if (number>max) return 0;
+    else return 1;
 }
 
 void applyexec(char *exec_src)
@@ -110,6 +127,51 @@ void closepipes(int **pipes, int argc)
     }
 }
 
+void pedidoValido(OPERATION operations, OPERATION operations2, int argc, char **argv)
+{
+    for(int i = 4; i < argc; i++)
+    {
+        int index = numopera(argv[i]);
+        operations2.ope[index].number++;
+        int max = operations2.ope[index].max;
+        int numberOps = operations2.ope[index].number;
+        if (isOperationValid(numberOps,max) == 0)
+        {
+            perror("Pedido inválido");
+            exit(1);
+        }
+    }
+}
+
+void preexecute(OPERATION operations, OPERATION operations2)
+{
+    for(int i = 0; i < 7; i++)
+    {
+        int pednum = operations2.ope[i].number;
+        int pronum = operations.ope[i].number;
+        int promax = operations.ope[i].max;
+        if(pednum + pronum > promax)
+        {
+            // while até poder
+        }
+    }
+}
+
+void escreveOperations(OPERATION operations, int argc,char **argv)
+{
+    int opindex = operations.numtasks; // depois quando tivermos varios pedidos controlar melhor esta variavel
+    // Talvez meter esta parte concorrente e usar semáforos de forma a não devolver valores errados.
+    for(int i = 4; i < argc; i++)
+    {
+        strcat(operations.tasks[opindex],argv[i]);
+        strcat(operations.tasks[opindex]," ");
+        int n = numopera(argv[i]);
+        operations.ope[n].number++;
+    }
+    operations.numtasks = opindex + 1;
+    saveOperation(operations); 
+}
+
 int main(int argc, char** argv)
 {
     if(argc == 2)
@@ -120,18 +182,12 @@ int main(int argc, char** argv)
     if(strcmp(argv[1],"proc-file") == 0)
     {
         // Se não for possivel atender o pedido, interromper o processo aqui (max_operações == operações atuais)
-        OPERATION operations = copyOperation();
-        int opindex = 0; // depois quando tivermos varios pedidos controlar melhor esta variavel
-        // Talvez meter esta parte concorrente e usar semáforos de forma a não devolver valores errados.
-        for(int i = 4; i < argc; i++)
-        {
-            strcat(operations.tasks[opindex],argv[i]);
-            strcat(operations.tasks[opindex]," ");
-            int n = numopera(argv[i]);
-            operations.ope[n].number++;
-        }
-        operations.numtasks = opindex + 1;
-        saveOperation(operations); 
+        OPERATION operations, operations2;
+        operations = readStatus();
+        operations2 = copyOperation(); // Só devolve o max
+        pedidoValido(operations,operations2,argc,argv);
+        preexecute(operations,operations2);
+        escreveOperations(operations,argc,argv);
         // Começa as operações do ficheiro
         int f1 = dup(1);
         write(f1,"Processing\n",11);
