@@ -29,6 +29,17 @@ int numopera(char a[])
     return r-1;
 }
 
+int countBytes(int file)
+{
+    lseek(file,0,SEEK_SET);
+    char aux[1024];
+    int result = 0;
+    int bytes_reads = 0;
+    while((bytes_reads = read(file,aux,sizeof(aux))) > 0)
+        result += bytes_reads;
+    return result;
+}
+
 void execname(char *src, char *result)
 {
     int i,j;
@@ -172,6 +183,63 @@ void escreveOperations(OPERATION operations, int argc,char **argv)
     saveOperation(operations); 
 }
 
+
+void finalprocess2(int f1, int fread, int finalfile)
+{
+    int bytesinput = countBytes(fread);
+    int bytesoutput = countBytes(finalfile);
+    close(fread);
+    close(finalfile);
+    char concluded[1024];
+    sprintf(concluded,"Concluded (bytes-input: %d, bytes-output: %d)\n",bytesinput,bytesoutput);
+    write(f1,concluded,strlen(concluded));
+}
+
+
+void finalprocess(int f1, int fread, int finalfile)
+{
+    int bytesinput = 0;
+    int bytesoutput = 0;
+    int pipesbytes[2][2];
+    pipe(pipesbytes[0]);
+    pipe(pipesbytes[1]);
+    if(fork() == 0)
+    {
+        close(pipesbytes[0][0]);
+        close(pipesbytes[1][0]);
+        close(pipesbytes[1][1]);
+        bytesinput = countBytes(fread);
+        write(pipesbytes[0][1],&bytesinput,sizeof(int));
+        close(pipesbytes[0][1]);
+        close(fread);
+        _exit(0);
+    }
+    if(fork() == 0)
+    {
+        close(pipesbytes[0][0]);
+        close(pipesbytes[1][0]);
+        close(pipesbytes[0][1]);
+        bytesoutput = countBytes(finalfile);
+        write(pipesbytes[1][1],&bytesoutput,sizeof(int));
+        close(pipesbytes[1][1]);
+        close(finalfile);
+        _exit(0);
+    }
+    close(fread);
+    close(finalfile);
+    wait(NULL);
+    wait(NULL);
+    close(pipesbytes[0][1]);
+    close(pipesbytes[1][1]);
+    read(pipesbytes[0][0],&bytesinput,sizeof(int));
+    read(pipesbytes[1][0],&bytesoutput,sizeof(int));
+    close(pipesbytes[0][0]);
+    close(pipesbytes[1][0]);
+    char concluded[1024];
+    sprintf(concluded,"Concluded (bytes-input: %d, bytes-output: %d)\n",bytesinput,bytesoutput);
+    write(f1,concluded,strlen(concluded));
+}
+
 int main(int argc, char** argv)
 {
     if(argc == 2)
@@ -192,11 +260,12 @@ int main(int argc, char** argv)
         int f1 = dup(1);
         write(f1,"Processing\n",11);
         int fread = open(argv[indexler],O_RDONLY);
-        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_WRONLY, 0660);
-        int **pipes = (int **) malloc(sizeof (int *) * argc+1);
-        for(int i = 5; i < argc+1;i++)
+        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int lim = argc-1;
+        int **pipes = (int **) malloc(sizeof (int *) * argc);
+        for(int i = 5; i < argc;i++)
             pipes[i] = (int *) malloc(sizeof (int) * 2);
-        for(int i = 5; i < argc+1;i++)
+        for(int i = 5; i < argc;i++)
             pipe(pipes[i]);
         // Aplica a primeira operação ao ficheiro de leitura
         if(argc > 4)
@@ -204,36 +273,40 @@ int main(int argc, char** argv)
             if(fork() == 0)
             {
                 dup2(fread,0);
-                dup2(pipes[5][1],1);
-                closepipes(pipes,argc);
+                if(argc == 5)
+                    dup2(finalfile,1);
+                else
+                    dup2(pipes[5][1],1);
+                closepipes(pipes,lim);
                 applyexec(argv[4]);
             }
         }
-        // Vai aplicando as restantes operações
-        for(int i = 5; i < argc; i++)
+        if(argc > 5)
         {
+            // Vai aplicando as restantes operações
+            for(int i = 5; i < lim; i++)
+            {
+                if(fork() == 0)
+                {
+                    dup2(pipes[i][0],0);
+                    dup2(pipes[i+1][1],1);
+                    closepipes(pipes,lim);
+                    applyexec(argv[i]);
+                }
+            }
+            // Ultima operação para o ficheiro resultante
             if(fork() == 0)
             {
-                dup2(pipes[i][0],0);
-                dup2(pipes[i+1][1],1);
-                closepipes(pipes,argc);
-                applyexec(argv[i]);
+                dup2(pipes[lim][0],0);
+                dup2(finalfile,1);
+                closepipes(pipes,lim);
+                applyexec(argv[lim]);
             }
         }
-        // Copia o resultado da ultima operação para o ficheiro resultante
-        if(fork() == 0)
-        {
-            dup2(pipes[argc][0],0);
-            dup2(finalfile,1);
-            closepipes(pipes,argc);
-            applyexec("nop");
-        }
-        closepipes(pipes,argc);
-        for(int i = 4; i < argc+1;i++)
+        closepipes(pipes,lim);
+        for(int i = 4; i < argc;i++)
             wait(NULL);
-        close(finalfile);
-        close(fread);
-        write(f1,"Concluded\n",10);
+        finalprocess(f1,fread,finalfile);
     }
     return 0;
 }
