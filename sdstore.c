@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "operationstruct.h"
 
+char path[1024];
 int indexler = 2;
 int indexescrever = 3;
 
@@ -42,12 +43,8 @@ int countBytes(int file)
 
 void execname(char *src, char *result)
 {
-    int i,j;
-    result[0] = '.';
-    result[1] = '/';
-    for(i = 0, j = 2; src[i] != '\0'; i++, j++)
-        result[j] = src[i];
-    result[j] = '\0';
+    strcpy(result,path);
+    strcat(result,src);
 }
 
 void printStatus()
@@ -122,7 +119,7 @@ void applyexec(char *exec_src)
 {
     int i;
     for(i = 0; exec_src[i] != '\0'; i++);
-    char exec[i+3];
+    char exec[i+strlen(path)];
     execname(exec_src,exec);
     execlp(exec,exec,NULL);
     perror("ERRO\n");
@@ -249,6 +246,9 @@ int main(int argc, char** argv)
     }
     if(strcmp(argv[1],"proc-file") == 0)
     {
+        int fpath = open("path",O_RDONLY);
+        read(fpath,path,sizeof(path));
+        close(fpath);
         // Se não for possivel atender o pedido, interromper o processo aqui (max_operações == operações atuais)
         OPERATION operations, operations2;
         operations = readStatus();
@@ -260,7 +260,7 @@ int main(int argc, char** argv)
         int f1 = dup(1);
         write(f1,"Processing\n",11);
         int fread = open(argv[indexler],O_RDONLY);
-        int finalfile = open(argv[3],O_CREAT | O_TRUNC | O_RDWR, 0660);
+        int finalfile = open(argv[indexescrever],O_CREAT | O_TRUNC | O_RDWR, 0660);
         int lim = argc-1;
         int **pipes = (int **) malloc(sizeof (int *) * argc);
         for(int i = 5; i < argc;i++)
@@ -304,6 +304,9 @@ int main(int argc, char** argv)
             }
         }
         closepipes(pipes,lim);
+        for(int i = 5; i < argc;i++)
+            free(pipes[i]);
+        free(pipes);
         for(int i = 4; i < argc;i++)
             wait(NULL);
         finalprocess(f1,fread,finalfile);

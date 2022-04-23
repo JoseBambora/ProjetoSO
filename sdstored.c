@@ -1,7 +1,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <sys/wait.h>
 #include <string.h>
 #include "operationstruct.h"
 
@@ -43,44 +43,54 @@ ssize_t readln(int fd, char *line, size_t size)
 // Ainda falta guardar a pasta aonde estarão guardados os executáveis
 int main(int argc, char** argv)
 {
-    char*caminho = argv[2];
-    char pathString[1024];
-    strcpy (pathString, caminho);
-    //int size = strlen(caminho);
-    int fpath = open("path",O_CREAT | O_TRUNC | O_WRONLY, 0660);
-    write(fpath,pathString, sizeof(pathString));
-    close (fpath);
-    MAXOPERATION o[7];
-    int f1 = open(argv[1],O_RDONLY);
-    char buf[1024];
-    int i = 0;
-    while(readln(f1,buf,sizeof(buf)) > 0)
+    if(fork() == 0)
     {
-        char *aux;
-        int n = numopera(strtok_r(buf," ",&aux));
-        if(n > 0)
-        {
-            n--;
-            strcpy(o[n].operation,buf);
-            o[n].max = atoi(strtok(aux,"\n"));
-            o[n].number = 0;
-            i++;
-        }
+        char*caminho = argv[2];
+        char pathString[1024];
+        strcpy (pathString, caminho);
+        //int size = strlen(caminho);
+        int fpath = open("path",O_CREAT | O_TRUNC | O_WRONLY, 0660);
+        write(fpath,pathString, sizeof(pathString));
+        close (fpath);
+        _exit(0);
     }
-    if(i > 0)
+    if(fork() == 0)
     {
-        int f2 = open("server_max_info",O_CREAT | O_TRUNC | O_WRONLY, 0660);
-        write(f2,o,sizeof(o));
-        close(f2);
-        /*
-        f2 = open("server_max_info",O_RDONLY);
-        MAXOPERATION r[7];
-        read(f2,r,sizeof(r));
-        for(int i = 0; i < 7; i++)
+        MAXOPERATION o[7];
+        int f1 = open(argv[1],O_RDONLY);
+        char buf[1024];
+        int i = 0;
+        while(readln(f1,buf,sizeof(buf)) > 0)
         {
-            printf("%s %d %d\n",r[i].operation, r[i].max, r[i].number);
+            char *aux;
+            int n = numopera(strtok_r(buf," ",&aux));
+            if(n > 0)
+            {
+                n--;
+                strcpy(o[n].operation,buf);
+                o[n].max = atoi(strtok(aux,"\n"));
+                o[n].number = 0;
+                i++;
+            }
         }
-        */   
+        if(i > 0)
+        {
+            int f2 = open("server_max_info",O_CREAT | O_TRUNC | O_WRONLY, 0660);
+            write(f2,o,sizeof(o));
+            close(f2);
+            /*
+            f2 = open("server_max_info",O_RDONLY);
+            MAXOPERATION r[7];
+            read(f2,r,sizeof(r));
+            for(int i = 0; i < 7; i++)
+            {
+                printf("%s %d %d\n",r[i].operation, r[i].max, r[i].number);
+            }
+            */   
+        }
+        _exit(0);
     }
+    wait(NULL);
+    wait(NULL);
     return 0;
 }
