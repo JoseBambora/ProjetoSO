@@ -14,6 +14,7 @@ int indexescrever = 2;
 char pending[] = "Pending\n";
 char processing[] = "Processing\n";
 char invalido[] = "Invalido\n";
+char sobrecarga[] = "Servidor sobrecarregado, pedido descartado\n";
 
 int fleitura, fescrita;
 
@@ -105,8 +106,8 @@ void finalprocess(int f1, int fread, int finalfile)
     char concluded[1024];
     sprintf(concluded,"Concluded (bytes-input: %d, bytes-output: %d)\n",bytesinput,bytesoutput);
     write(f1,concluded,strlen(concluded));
+    close(f1);
 }
-
 
 void finalprocess2(int f1, int fread, int finalfile)
 {
@@ -246,20 +247,19 @@ int main(int argc, char **argv)
             i++;
         }
     }
-    unlink("tmp/server_cliente");
-    if(mkfifo("tmp/server_cliente",0666)<0)
-        write(2,"erro\n",5);
     unlink("tmp/cliente_server");
     if(mkfifo("tmp/cliente_server",0666)<0)
         write(2,"erro\n",5);
-        // Operations ir trabalhando
+    // Operations ir trabalhando
     while(1)
     {  
         // lê pedido  
+        TASK task;
         char pedido[1024];
         int finfo2 = open("tmp/cliente_server", O_RDONLY); 
-        read (finfo2,pedido,sizeof(pedido));
+        read (finfo2,&task,sizeof(task));
         close(finfo2);
+        strcpy(pedido,task.pedido);
         char *pedidoaux;
         pedidoaux = pedido;
         char *componentes[1024];
@@ -282,7 +282,7 @@ int main(int argc, char **argv)
         else
         {
             write(1,"Novo pedido\n",12);
-            int finfo1 = open("tmp/server_cliente", O_WRONLY);
+            int finfo1 = open(task.cliente, O_WRONLY); // adaptar
             write(finfo1,pending,sizeof(pending));
             int arrayaux[7] = {0,0,0,0,0,0,0};
             for(int i = 0; i < espacos; i++)
@@ -304,18 +304,34 @@ int main(int argc, char **argv)
                 {
                     while(operation.ope[i].number + arrayaux[i] > operation.ope[i].max)
                     {
+                        TASK sobrecarregado;
+                        char pedido2[1024];
                         wait(NULL);
                         int finfo2 = open("tmp/cliente_server", O_RDONLY); 
-                        read (finfo2,pedido,sizeof(pedido));
+                        read (finfo2,sobrecarregado.pedido,sizeof(sobrecarregado));
                         close(finfo2);
-                        if(*pedido == 'a')
+                        strcpy(pedido2,sobrecarregado.pedido);
+                        if(*pedido2 == 'a')
                         {
-                            espacos = 1;
-                            for(int i = 0; pedidoaux[i] != '\0'; i++)
-                                if(pedidoaux[i] == ' ')
-                                    espacos++;
-                            for(int i = 4; i < espacos; i++)
-                                operation.ope[numopera(componentes[i])].number--;
+                            int espacos2 = 1;
+                            for(int i = 0; pedido2[i] != '\0'; i++)
+                                if(pedido2[i] == ' ')
+                                    espacos2++;
+                            char *componentes2[1024];
+                            pedidoaux = pedido2;
+                            for(int i = 0; i < espacos2  ;i++)
+                            {
+                                componentes2[i] = (char *) malloc(sizeof(char)* 1024);
+                                strcpy(componentes2[i],strsep(&pedidoaux," "));
+                            }
+                            for(int i = 4; i < espacos2; i++)
+                                operation.ope[numopera(componentes2[i])].number--;
+                        }
+                        else
+                        {
+                            int finfos = open(sobrecarregado.cliente, O_WRONLY); // adaptar
+                            write(finfos,sobrecarga,sizeof(sobrecarga));
+                            close(finfos);
                         }
                     }
                     operation.ope[i].number+=arrayaux[i];

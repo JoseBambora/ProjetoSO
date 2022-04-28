@@ -11,3 +11,9 @@ typedef struct operations
     int numtasks;
     MAXOPERATION ope[7];
 }OPERATION;
+
+typedef struct task
+{
+    char pedido[1024];
+    char cliente[1024];
+}TASK;
