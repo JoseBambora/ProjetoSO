@@ -304,13 +304,14 @@ int main(int argc, char **argv)
                 {
                     while(operation.ope[i].number + arrayaux[i] > operation.ope[i].max)
                     {
+                        printf("Pending pedido\n");
                         TASK sobrecarregado;
                         char pedido2[1024];
-                        wait(NULL);
                         int finfo2 = open("tmp/cliente_server", O_RDONLY); 
                         read (finfo2,sobrecarregado.pedido,sizeof(sobrecarregado));
                         close(finfo2);
                         strcpy(pedido2,sobrecarregado.pedido);
+                        printf("%s\n",pedido2);
                         if(*pedido2 == 'a')
                         {
                             int espacos2 = 1;
@@ -329,7 +330,7 @@ int main(int argc, char **argv)
                         }
                         else
                         {
-                            int finfos = open(sobrecarregado.cliente, O_WRONLY); // adaptar
+                            int finfos = open(sobrecarregado.cliente, O_WRONLY);
                             write(finfos,sobrecarga,sizeof(sobrecarga));
                             close(finfos);
                         }

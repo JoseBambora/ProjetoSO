@@ -38,10 +38,14 @@ int main(int argc, char** argv)
     int bytes;
     server = open(task.cliente, O_RDONLY);
     char pedido[1024];
+    int i = 0;
     while((bytes = read(server,pedido,sizeof(pedido))) > 0)
+    {
         write(1,pedido,bytes);
+        i++;
+    }
     close(server);
-    if(argc < 2 || *argv[1] != 's')
+    if(i > 1 && (argc < 2 || *argv[1] != 's'))
     {
         server = open("tmp/cliente_server", O_WRONLY);
         write(server,&task2,sizeof(task2));
