@@ -17,3 +17,12 @@ typedef struct task
     char pedido[1024];
     char cliente[1024];
 }TASK;
+
+typedef struct waitqueue
+{
+    char *pedido[1024];
+    char cliente[1024];
+    int espacos;
+    int array[7];
+    struct waitqueue *next;
+} *WAITQUEUE;

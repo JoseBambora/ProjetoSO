@@ -84,7 +84,7 @@ void applyexec(char *exec_src)
     char exec[i+strlen(path)];
     execname(exec_src,exec);
     execlp(exec,exec,NULL);
-    perror("ERRO\n");
+    perror("\nExec erro \n");
     _exit(1);
 }
 
@@ -225,6 +225,38 @@ void execpedido(int argc, char **argv, int f1)
     finalprocess(f1,fread,finalfile);
 }
 
+void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int espacos)
+{
+    WAITQUEUE aux = *queue;
+    WAITQUEUE add = malloc(sizeof(struct waitqueue));
+    add->espacos = espacos;
+    strcpy(add->cliente,cliente);
+    for(int i = 0; i < espacos; i++)
+    {
+        add->pedido[i] = (char *) malloc(sizeof(char)* 1024);
+        strcpy(add->pedido[i],pedido[i]);
+    }
+    for(int i = 0; i < 7; i++)
+        add->array[i] = array[i];
+    add->next = NULL;
+    if(aux != NULL)
+    {
+        while(aux->next != NULL)
+            aux = aux->next;
+        aux->next = add;
+    }
+    else
+        *queue = add;
+}
+
+int canExecute(const int array[], OPERATION operation)
+{
+    for(int i = 0; i < 7; i++)
+        if(array[i] + operation.ope[i].number > operation.ope[i].max)
+            return 0;
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     char*caminho = argv[2];
@@ -234,6 +266,7 @@ int main(int argc, char **argv)
     char buf[1024];
     int i = 0;
     operation.numtasks = 0;
+    WAITQUEUE queue = NULL;
     while(readln(f1,buf,sizeof(buf)) > 0)
     {
         char *aux;
@@ -274,10 +307,47 @@ int main(int argc, char **argv)
         }
         if(*pedido == 'a')
         {
-            // acabou pedido
-            // analisar pedido e eliminar as operações de Operation
             for(int i = 4; i < espacos; i++)
                 operation.ope[numopera(componentes[i])].number--;
+            WAITQUEUE aux = queue;
+            WAITQUEUE ant = NULL;
+            while(aux)
+            {
+                int exec = 0;
+                if(canExecute(aux->array,operation))
+                {
+                    exec = 1;
+                    for(int i = 0; i < 7; i++)
+                    {
+                        operation.ope[i].number+=aux->array[i];
+                    }
+                    int finfo1 = open(aux->cliente, O_WRONLY); // adaptar
+                    if (fork() == 0) 
+                    {
+                        if (*pedido == 's' || aux->espacos == 1)
+                            printStatus(operation, finfo1);
+                        else
+                            execpedido(aux->espacos, aux->pedido, finfo1);
+                        _exit(0);
+                    }
+                    close(finfo1);
+                }
+                if(exec)
+                {
+                    WAITQUEUE aux2 = aux;
+                    aux = aux->next;
+                    if(ant)
+                        ant->next = aux;
+                    else
+                        queue = aux;
+                    free(aux2);
+                }
+                else
+                {
+                    ant = aux;
+                    aux = aux->next;
+                }
+            }
         }
         else
         {
@@ -300,67 +370,40 @@ int main(int argc, char **argv)
             }
             if(espacos > 0)
             {
+                int exec = 1;
                 for(int i = 0; i < 7; i++)
                 {
-                    while(operation.ope[i].number + arrayaux[i] > operation.ope[i].max)
+                    if(canExecute(arrayaux,operation) == 0)
                     {
-                        printf("Pending pedido\n");
-                        TASK sobrecarregado;
-                        char pedido2[1024];
-                        int finfo2 = open("tmp/cliente_server", O_RDONLY); 
-                        read (finfo2,sobrecarregado.pedido,sizeof(sobrecarregado));
-                        close(finfo2);
-                        strcpy(pedido2,sobrecarregado.pedido);
-                        printf("%s\n",pedido2);
-                        if(*pedido2 == 'a')
-                        {
-                            int espacos2 = 1;
-                            for(int i = 0; pedido2[i] != '\0'; i++)
-                                if(pedido2[i] == ' ')
-                                    espacos2++;
-                            char *componentes2[1024];
-                            pedidoaux = pedido2;
-                            for(int i = 0; i < espacos2  ;i++)
-                            {
-                                componentes2[i] = (char *) malloc(sizeof(char)* 1024);
-                                strcpy(componentes2[i],strsep(&pedidoaux," "));
-                            }
-                            for(int i = 4; i < espacos2; i++)
-                                operation.ope[numopera(componentes2[i])].number--;
-                        }
-                        else
-                        {
-                            int finfos = open(sobrecarregado.cliente, O_WRONLY);
-                            write(finfos,sobrecarga,sizeof(sobrecarga));
-                            close(finfos);
-                        }
+                        exec = 0;
+                        break;
                     }
-                    operation.ope[i].number+=arrayaux[i];
                 }
-                // Processo filho que vai executar o pedido
-                // verifica primeiro o pedido se pode ser executado 
-                // pedidoValido
-                // preExecute
-                if(fork() == 0)
+                if(exec) 
                 {
-                    // executa pedido
-                    if(*pedido == 's' || espacos == 1)
-                        printStatus(operation,finfo1);
-                    else
-                        execpedido(espacos,componentes,finfo1);
-                        //write(finfo1,pedido,strlen(pedido));
-                    // Escreve as operações atuais  
-                    // separar pedido em argc e argv
-                    // char **argv = NULL;
-                    // execpedido(3,argv);
-                    _exit(0);
+                    for(int i = 0; i < 7; i++)
+                        operation.ope[i].number+=arrayaux[i];
+                    if (fork() == 0) 
+                    {
+                        if (*pedido == 's' || espacos == 1)
+                            printStatus(operation, finfo1);
+                        else
+                            execpedido(espacos, componentes, finfo1);
+                        _exit(0);
+                    }
+                }
+                else
+                {
+                    addQueue(&queue,componentes,task.cliente,arrayaux,espacos);
+                    write(finfo1,"w",1);
                 }
             }
             close(finfo1);
+            for(int i = 0; i < espacos  ;i++)
+                free(componentes[i]);
         }
-    }
+    }    
     unlink("server_cliente");
     unlink("cliente_server");
     return 0;
-
 }

@@ -8,13 +8,10 @@
 #include <sys/stat.h>
 #include "operationstruct.h"
 
-
-
 int main(int argc, char** argv)
 {
     // enviar pedido por pipes com nome
     // servidor escreve o vai escrevendo as estapas para cada pedido
-    // create pipecomnome único
     TASK task;
     pid_t cliente = getpid();
     sprintf(task.cliente,"tmp/%d",cliente);
@@ -39,12 +36,26 @@ int main(int argc, char** argv)
     server = open(task.cliente, O_RDONLY);
     char pedido[1024];
     int i = 0;
+    int n = 0;
     while((bytes = read(server,pedido,sizeof(pedido))) > 0)
     {
-        write(1,pedido,bytes);
+        if(*pedido == 'w')
+            n = 1;
+        else
+            write(1,pedido,bytes);
         i++;
     }
     close(server);
+    if(n)
+    {
+        server = open(task.cliente, O_RDONLY);
+        while((bytes = read(server,pedido,sizeof(pedido))) > 0)
+        {
+            write(1,pedido,bytes);
+            i++;
+        }
+        close(server); 
+    }
     if(i > 1 && (argc < 2 || *argv[1] != 's'))
     {
         server = open("tmp/cliente_server", O_WRONLY);
