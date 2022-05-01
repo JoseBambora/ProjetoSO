@@ -56,7 +56,7 @@ int main(int argc, char** argv)
         }
         close(server); 
     }
-    if(i > 1 && (argc < 2 || *argv[1] != 's'))
+    if(i > 1 && argc > 3)
     {
         server = open("tmp/cliente_server", O_WRONLY);
         write(server,&task2,sizeof(task2));

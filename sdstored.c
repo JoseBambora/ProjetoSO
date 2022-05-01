@@ -51,21 +51,19 @@ int countBytes(int file)
 
 void printStatus(OPERATION operations, int fescrita)
 {
-    char escrever[1024];
-    for(int i = 0; i < operations.numtasks; i++)
+    char escrever[2048];
+    EXECSTATUS execstatus = operations.execstatus;
+    while(execstatus)
     {
-        sprintf(escrever,"Task %d: %s\n",i,operations.tasks[i]);
-        int i;
-        for(i = 0; escrever[i] != '\0'; i++);
-        write(fescrita,escrever,i);
+        int j = sprintf(escrever,"Task %d: %s\n",execstatus->nrpedido, execstatus->pedido);
+        write(fescrita,escrever,j);
+        execstatus = execstatus->next;
     }
     for(int i  = 0; i < 7; i++)
     {
         int n1 = operations.ope[i].max;
         int n2 = operations.ope[i].number;
-        sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operations.ope[i].operation,n2,n1);
-        int j;
-        for(j = 0; escrever[j] != '\0'; j++);
+        int j = sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operations.ope[i].operation,n2,n1);
         write(fescrita,escrever,j);
     }
     close(fescrita);
@@ -225,12 +223,13 @@ void execpedido(int argc, char **argv, int f1)
     finalprocess(f1,fread,finalfile);
 }
 
-void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int espacos)
+void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int espacos, char pedidob[])
 {
     WAITQUEUE aux = *queue;
     WAITQUEUE add = malloc(sizeof(struct waitqueue));
     add->espacos = espacos;
     strcpy(add->cliente,cliente);
+    strcpy(add->pedidob,pedidob);
     for(int i = 0; i < espacos; i++)
     {
         add->pedido[i] = (char *) malloc(sizeof(char)* 1024);
@@ -247,6 +246,46 @@ void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int
     }
     else
         *queue = add;
+}
+
+void addPedidoOperation(EXECSTATUS *execstatus, int num, char pedido[])
+{
+    EXECSTATUS add = malloc(sizeof(struct execstatus));
+    add->nrpedido = num;
+    strcpy(add->pedido,pedido);
+    add->next = NULL;
+    EXECSTATUS aux = *execstatus;
+    EXECSTATUS ant = NULL;
+    while(aux)
+    {
+        ant = aux;
+        aux = aux->next;
+    }
+    if(ant)
+        ant->next = add;
+    else
+        *execstatus = add;
+}
+
+void removePedidoOperation(EXECSTATUS *execstatus, char pedido[])
+{
+    pedido += 7;
+    EXECSTATUS aux = *execstatus;
+    EXECSTATUS ant = NULL;
+    while(aux)
+    {
+        if(strcmp(aux->pedido,pedido) == 0)
+        {
+            if(ant)
+                ant->next = aux->next;
+            else
+                *execstatus = aux->next;
+            free(aux);
+            break;
+        }
+        ant = aux;
+        aux = aux->next;
+    }
 }
 
 int canExecute(const int array[], OPERATION operation)
@@ -267,6 +306,7 @@ int main(int argc, char **argv)
     int i = 0;
     operation.numtasks = 0;
     WAITQUEUE queue = NULL;
+    operation.execstatus = NULL;
     while(readln(f1,buf,sizeof(buf)) > 0)
     {
         char *aux;
@@ -284,15 +324,19 @@ int main(int argc, char **argv)
     if(mkfifo("tmp/cliente_server",0666)<0)
         write(2,"erro\n",5);
     // Operations ir trabalhando
+    int numpedidos = 0;
     while(1)
     {  
         // lê pedido  
         TASK task;
         char pedido[1024];
+        char pedidob[1024];
+        strcpy(pedidob,pedido);
         int finfo2 = open("tmp/cliente_server", O_RDONLY); 
         read (finfo2,&task,sizeof(task));
         close(finfo2);
         strcpy(pedido,task.pedido);
+        strcpy(pedidob,pedido);
         char *pedidoaux;
         pedidoaux = pedido;
         char *componentes[1024];
@@ -307,6 +351,7 @@ int main(int argc, char **argv)
         }
         if(*pedido == 'a')
         {
+            removePedidoOperation(&operation.execstatus,pedidob);
             for(int i = 4; i < espacos; i++)
                 operation.ope[numopera(componentes[i])].number--;
             WAITQUEUE aux = queue;
@@ -321,6 +366,8 @@ int main(int argc, char **argv)
                     {
                         operation.ope[i].number+=aux->array[i];
                     }
+                    numpedidos++;
+                    addPedidoOperation(&operation.execstatus,numpedidos,aux->pedidob);
                     int finfo1 = open(aux->cliente, O_WRONLY); // adaptar
                     if (fork() == 0) 
                     {
@@ -381,6 +428,11 @@ int main(int argc, char **argv)
                 }
                 if(exec) 
                 {
+                    if (*pedido != 's' && espacos > 1)
+                    {
+                        numpedidos++;
+                        addPedidoOperation(&operation.execstatus,numpedidos,pedidob);
+                    }
                     for(int i = 0; i < 7; i++)
                         operation.ope[i].number+=arrayaux[i];
                     if (fork() == 0) 
@@ -394,7 +446,7 @@ int main(int argc, char **argv)
                 }
                 else
                 {
-                    addQueue(&queue,componentes,task.cliente,arrayaux,espacos);
+                    addQueue(&queue,componentes,task.cliente,arrayaux,espacos,pedidob);
                     write(finfo1,"w",1);
                 }
             }

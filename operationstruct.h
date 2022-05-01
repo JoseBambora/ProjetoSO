@@ -5,9 +5,16 @@ typedef struct maxOperation
     int max;
 }MAXOPERATION;
 
+typedef struct execstatus
+{
+    char pedido[1024];
+    int nrpedido;
+    struct execstatus *next;
+} *EXECSTATUS;
+
 typedef struct operations
 {
-    char tasks[2048][40];
+    EXECSTATUS execstatus;
     int numtasks;
     MAXOPERATION ope[7];
 }OPERATION;
@@ -21,6 +28,7 @@ typedef struct task
 typedef struct waitqueue
 {
     char *pedido[1024];
+    char pedidob[1024];
     char cliente[1024];
     int espacos;
     int array[7];
