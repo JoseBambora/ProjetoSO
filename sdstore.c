@@ -36,17 +36,15 @@ int main(int argc, char** argv)
     server = open(task.cliente, O_RDONLY);
     char pedido[1024];
     int i = 0;
-    int n = 0;
-    while((bytes = read(server,pedido,sizeof(pedido))) > 0)
+    char c = '0';
+    while((bytes = read(server,pedido,sizeof(pedido))) > 0 && c != 'w')
     {
-        if(*pedido == 'w')
-            n = 1;
-        else
-            write(1,pedido,bytes);
+        c = *pedido;
+        if(c != 'w')write(1,pedido,bytes);
         i++;
     }
     close(server);
-    if(n)
+    if(c == 'w')
     {
         server = open(task.cliente, O_RDONLY);
         while((bytes = read(server,pedido,sizeof(pedido))) > 0)
@@ -56,7 +54,7 @@ int main(int argc, char** argv)
         }
         close(server); 
     }
-    if(i > 1 && argc > 3)
+    if(c != 'I' && i > 2 && argc > 3)
     {
         server = open("tmp/cliente_server", O_WRONLY);
         write(server,&task2,sizeof(task2));

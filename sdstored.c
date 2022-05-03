@@ -325,16 +325,15 @@ int main(int argc, char **argv)
         write(2,"erro\n",5);
     // Operations ir trabalhando
     int numpedidos = 0;
+    int finfo2 = open("tmp/cliente_server", O_RDONLY); 
+    int faux = open("tmp/cliente_server",O_WRONLY);
     while(1)
     {  
         // lê pedido  
         TASK task;
         char pedido[1024];
         char pedidob[1024];
-        strcpy(pedidob,pedido);
-        int finfo2 = open("tmp/cliente_server", O_RDONLY); 
         read (finfo2,&task,sizeof(task));
-        close(finfo2);
         strcpy(pedido,task.pedido);
         strcpy(pedidob,pedido);
         char *pedidoaux;
@@ -457,5 +456,7 @@ int main(int argc, char **argv)
     }    
     unlink("server_cliente");
     unlink("cliente_server");
+    close(finfo2);
+    close(faux);
     return 0;
 }
