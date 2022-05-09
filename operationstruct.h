@@ -32,5 +32,7 @@ typedef struct waitqueue
     char cliente[1024];
     int espacos;
     int array[7];
+    long time;
+    int prioridade;
     struct waitqueue *next;
 } *WAITQUEUE;

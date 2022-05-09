@@ -366,12 +366,11 @@ int main(int argc, char **argv)
 {
     char*caminho = argv[2];
     strcpy (path, caminho);
-    OPERATION operation;
     int f1 = open(argv[1],O_RDONLY);
     char buf[1024];
     int i = 0;
     operation.numtasks = 0;
-    WAITQUEUE queue = NULL;
+    queue = NULL;
     operation.execstatus = NULL;
     while(readln(f1,buf,sizeof(buf)) > 0)
     {
@@ -386,15 +385,25 @@ int main(int argc, char **argv)
             i++;
         }
     }
+    close(f1);
+    signal(SIGTERM,acabaServer);
     unlink("tmp/cliente_server");
     if(mkfifo("tmp/cliente_server",0666)<0)
         write(2,"erro\n",5);
     // Operations ir trabalhando
     int numpedidos = 0;
-    int finfo2 = open("tmp/cliente_server", O_RDONLY); 
-    int faux = open("tmp/cliente_server",O_WRONLY);
+    finfo2 = open("tmp/cliente_server", O_RDONLY); 
+    faux = open("tmp/cliente_server",O_WRONLY);
     while(1)
-    {  
+    {
+        if(sinal)
+            if(size() == 0)
+            {
+                unlink("tmp/cliente_server");
+                close(finfo2);
+                close(faux);
+                break;
+            }
         // lê pedido  
         TASK task;
         char pedido[1024];
@@ -416,15 +425,18 @@ int main(int argc, char **argv)
         }
         if(*pedido == 'a')
         {
+            int a = 4;
+            if(strcmp(componentes[2],"-p") == 0)
+                a += 2;
             removePedidoOperation(&operation.execstatus,pedidob);
-            for(int i = 4; i < espacos; i++)
+            for(int i = a; i < espacos; i++)
                 operation.ope[numopera(componentes[i])].number--;
             WAITQUEUE aux = queue;
             WAITQUEUE ant = NULL;
             while(aux)
             {
                 int exec = 0;
-                if(canExecute(aux->array,operation))
+                if(canExecute(aux->array))
                 {
                     exec = 1;
                     for(int i = 0; i < 7; i++)
@@ -437,7 +449,7 @@ int main(int argc, char **argv)
                     if (fork() == 0) 
                     {
                         if (*pedido == 's' || aux->espacos == 1)
-                            printStatus(operation, finfo1);
+                            printStatus(finfo1);
                         else
                             execpedido(aux->espacos, aux->pedido, finfo1);
                         _exit(0);
@@ -461,7 +473,7 @@ int main(int argc, char **argv)
                 }
             }
         }
-        else
+        else if(!sinal)
         {
             write(1,"Novo pedido\n",12);
             int finfo1 = open(task.cliente, O_WRONLY); // adaptar
@@ -485,7 +497,7 @@ int main(int argc, char **argv)
                 int exec = 1;
                 for(int i = 0; i < 7; i++)
                 {
-                    if(canExecute(arrayaux,operation) == 0)
+                    if(canExecute(arrayaux) == 0)
                     {
                         exec = 0;
                         break;
@@ -503,7 +515,7 @@ int main(int argc, char **argv)
                     if (fork() == 0) 
                     {
                         if (*pedido == 's' || espacos == 1)
-                            printStatus(operation, finfo1);
+                            printStatus(finfo1);
                         else
                             execpedido(espacos, componentes, finfo1);
                         _exit(0);
@@ -516,13 +528,16 @@ int main(int argc, char **argv)
                 }
             }
             close(finfo1);
-            for(int i = 0; i < espacos  ;i++)
-                free(componentes[i]);
         }
-    }    
-    unlink("server_cliente");
-    unlink("cliente_server");
-    close(finfo2);
-    close(faux);
+        else
+        {
+            int finfo1 = open(task.cliente, O_WRONLY);
+            write(finfo1,serveroff,sizeof(serveroff));
+            close(finfo1);
+        }
+        for(int i = 0; i < espacos  ;i++)
+            free(componentes[i]);
+    }
+    write(1,serveroff,sizeof(serveroff));
     return 0;
 }
