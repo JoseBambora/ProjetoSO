@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <signal.h>
+#include <time.h>
 
 char path[1024];
 int indexler = 1;
@@ -15,6 +17,13 @@ char pending[] = "Pending\n";
 char processing[] = "Processing\n";
 char invalido[] = "Invalido\n";
 char sobrecarga[] = "Servidor sobrecarregado, pedido descartado\n";
+char serveroff[] = "Servidor desligado\n";
+char servercomingoff[] = "Servidor vai fechar\n";
+int sinal = 0;
+int finfo2;
+int faux;
+OPERATION operation;
+WAITQUEUE queue;
 
 int fleitura, fescrita;
 
@@ -49,10 +58,10 @@ int countBytes(int file)
     return result;
 }
 
-void printStatus(OPERATION operations, int fescrita)
+void printStatus( int fescrita)
 {
     char escrever[2048];
-    EXECSTATUS execstatus = operations.execstatus;
+    EXECSTATUS execstatus = operation.execstatus;
     while(execstatus)
     {
         int j = sprintf(escrever,"Task %d: %s\n",execstatus->nrpedido, execstatus->pedido);
@@ -61,9 +70,9 @@ void printStatus(OPERATION operations, int fescrita)
     }
     for(int i  = 0; i < 7; i++)
     {
-        int n1 = operations.ope[i].max;
-        int n2 = operations.ope[i].number;
-        int j = sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operations.ope[i].operation,n2,n1);
+        int n1 = operation.ope[i].max;
+        int n2 = operation.ope[i].number;
+        int j = sprintf(escrever,"Transf: %s (%d/%d) (running/max)\n",operation.ope[i].operation,n2,n1);
         write(fescrita,escrever,j);
     }
     close(fescrita);
@@ -86,9 +95,9 @@ void applyexec(char *exec_src)
     _exit(1);
 }
 
-void closepipes(int **pipes, int argc)
+void closepipes(int **pipes, int argc, int a)
 {
-    for(int i = 4; i < argc+1;i++)
+    for(int i = a; i < argc+1;i++)
     {
         close(pipes[i][1]);
         close(pipes[i][0]);
@@ -170,38 +179,44 @@ ssize_t readln(int fd, char *line, size_t size)
 void execpedido(int argc, char **argv, int f1)
 {
     write(f1,processing,sizeof(processing));
+    if(strcmp(argv[1],"-p") == 0)
+    {
+        indexler+=2;
+        indexescrever+=2;
+    }
     int fread = open(argv[indexler],O_RDONLY);
     int finalfile = open(argv[indexescrever],O_CREAT | O_TRUNC | O_RDWR, 0660);
     int lim = argc-1;
+    int a = indexler+3;
     int **pipes = (int **) malloc(sizeof (int *) * argc);
-    for(int i = 4; i < argc;i++)
+    for(int i = a; i < argc;i++)
         pipes[i] = (int *) malloc(sizeof (int) * 2);
-    for(int i = 4; i < argc;i++)
+    for(int i = a; i < argc;i++)
         pipe(pipes[i]);
     // Aplica a primeira operação ao ficheiro de leitura
-    if(argc > 3)
+    if(argc > a-1)
     {
         if(fork() == 0)
         {
             dup2(fread,0);
-            if(argc == 4)
+            if(argc == a)
                 dup2(finalfile,1);
             else
-                dup2(pipes[4][1],1);
-            closepipes(pipes,lim);
-            applyexec(argv[3]);
+                dup2(pipes[a][1],1);
+            closepipes(pipes,lim,a);
+            applyexec(argv[a-1]);
         }
     }
-    if(argc > 4)
+    if(argc > a)
     {
         // Vai aplicando as restantes operações
-        for(int i = 4; i < lim; i++)
+        for(int i = a; i < lim; i++)
         {
             if(fork() == 0)
             {
                 dup2(pipes[i][0],0);
                 dup2(pipes[i+1][1],1);
-                closepipes(pipes,lim);
+                closepipes(pipes,lim,a);
                 applyexec(argv[i]);
             }
         }
@@ -210,15 +225,15 @@ void execpedido(int argc, char **argv, int f1)
         {
             dup2(pipes[lim][0],0);
             dup2(finalfile,1);
-            closepipes(pipes,lim);
+            closepipes(pipes,lim,a);
             applyexec(argv[lim]);
         }
     }
-    closepipes(pipes,lim);
-    for(int i = 4; i < argc;i++)
+    closepipes(pipes,lim,a);
+    for(int i = a; i < argc;i++)
         free(pipes[i]);
     free(pipes);
-    for(int i = 3; i < argc;i++)
+    for(int i = a-1; i < argc;i++)
         wait(NULL);
     finalprocess(f1,fread,finalfile);
 }
@@ -230,6 +245,10 @@ void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int
     add->espacos = espacos;
     strcpy(add->cliente,cliente);
     strcpy(add->pedidob,pedidob);
+    add->time = time(NULL);
+    add->prioridade = 0;
+    if(strcmp(pedido[1],"-p") == 0)
+        add->prioridade = atoi(pedido[2]);
     for(int i = 0; i < espacos; i++)
     {
         add->pedido[i] = (char *) malloc(sizeof(char)* 1024);
@@ -240,9 +259,34 @@ void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int
     add->next = NULL;
     if(aux != NULL)
     {
-        while(aux->next != NULL)
-            aux = aux->next;
-        aux->next = add;
+        WAITQUEUE ant = NULL;
+        int inseriu = 0;
+        while(aux != NULL)
+        {
+            long tempo = time(NULL) - aux->time; 
+            if(tempo + aux->prioridade <  add->prioridade)
+            {
+                if(ant)
+                {
+                    ant->next = add;
+                    add->next = aux;
+                }
+                else
+                {
+                    add->next = *queue;
+                    *queue = add;
+                }
+                inseriu = 1;
+                break;
+            }
+            else 
+            {
+                ant = aux;
+                aux = aux->next;
+            }
+        }
+        if(inseriu == 0)
+            ant->next = add;
     }
     else
         *queue = add;
@@ -288,13 +332,35 @@ void removePedidoOperation(EXECSTATUS *execstatus, char pedido[])
     }
 }
 
-int canExecute(const int array[], OPERATION operation)
+int canExecute(const int array[])
 {
     for(int i = 0; i < 7; i++)
         if(array[i] + operation.ope[i].number > operation.ope[i].max)
             return 0;
     return 1;
 }
+
+
+int size()
+{
+    if(operation.execstatus || queue)
+        return 1;
+    else
+        return 0; 
+}
+
+void acabaServer(int signum)
+{
+    write(1,servercomingoff,sizeof(servercomingoff));
+    if(size() == 0)
+    {
+        unlink("tmp/cliente_server");
+        close(finfo2);
+        close(faux);
+    }
+    sinal = 1;
+}
+
 
 int main(int argc, char **argv)
 {
