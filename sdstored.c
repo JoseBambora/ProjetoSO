@@ -20,6 +20,7 @@ char sobrecarga[] = "Servidor sobrecarregado, pedido descartado\n";
 char serveroff[] = "Servidor desligado\n";
 char servercomingoff[] = "Servidor vai fechar\n";
 int sinal = 0;
+int finfo1;
 int finfo2;
 int faux;
 OPERATION operation;
@@ -244,7 +245,6 @@ void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int
     WAITQUEUE add = malloc(sizeof(struct waitqueue));
     add->espacos = espacos;
     add->file = finfo;
-    strcpy(add->cliente,cliente);
     strcpy(add->pedidob,pedidob);
     add->time = time(NULL);
     add->prioridade = 0;
@@ -317,6 +317,7 @@ void removePedidoOperation(EXECSTATUS *execstatus, char pedido[])
     pedido += 7;
     EXECSTATUS aux = *execstatus;
     EXECSTATUS ant = NULL;
+    //write(1,pedido,strlen(pedido));
     while(aux)
     {
         if(strcmp(aux->pedido,pedido) == 0)
@@ -446,7 +447,7 @@ int main(int argc, char **argv)
                     }
                     numpedidos++;
                     addPedidoOperation(&operation.execstatus,numpedidos,aux->pedidob);
-                    int finfo1 = aux->file; // adaptar
+                    finfo1 = aux->file;
                     if (fork() == 0) 
                     {
                         if (*pedido == 's' || aux->espacos == 1)
@@ -477,7 +478,7 @@ int main(int argc, char **argv)
         else if(!sinal)
         {
             write(1,"Novo pedido\n",12);
-            int finfo1 = open(task.cliente, O_WRONLY); // adaptar
+            finfo1 = open(task.cliente, O_WRONLY); // adaptar
             write(finfo1,pending,sizeof(pending));
             int arrayaux[7] = {0,0,0,0,0,0,0};
             for(int i = 0; i < espacos; i++)
