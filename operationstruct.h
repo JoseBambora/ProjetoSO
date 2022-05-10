@@ -31,6 +31,7 @@ typedef struct waitqueue
     char pedidob[1024];
     char cliente[1024];
     int espacos;
+    int file;
     int array[7];
     long time;
     int prioridade;

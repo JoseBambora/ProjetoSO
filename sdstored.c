@@ -238,11 +238,12 @@ void execpedido(int argc, char **argv, int f1)
     finalprocess(f1,fread,finalfile);
 }
 
-void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int espacos, char pedidob[])
+void addQueue(WAITQUEUE *queue, char *pedido[], char cliente[], int array[], int espacos, char pedidob[],int finfo)
 {
     WAITQUEUE aux = *queue;
     WAITQUEUE add = malloc(sizeof(struct waitqueue));
     add->espacos = espacos;
+    add->file = finfo;
     strcpy(add->cliente,cliente);
     strcpy(add->pedidob,pedidob);
     add->time = time(NULL);
@@ -445,7 +446,7 @@ int main(int argc, char **argv)
                     }
                     numpedidos++;
                     addPedidoOperation(&operation.execstatus,numpedidos,aux->pedidob);
-                    int finfo1 = open(aux->cliente, O_WRONLY); // adaptar
+                    int finfo1 = aux->file; // adaptar
                     if (fork() == 0) 
                     {
                         if (*pedido == 's' || aux->espacos == 1)
@@ -520,14 +521,13 @@ int main(int argc, char **argv)
                             execpedido(espacos, componentes, finfo1);
                         _exit(0);
                     }
+                    close(finfo1);
                 }
                 else
                 {
-                    addQueue(&queue,componentes,task.cliente,arrayaux,espacos,pedidob);
-                    write(finfo1,"w",1);
+                    addQueue(&queue,componentes,task.cliente,arrayaux,espacos,pedidob,finfo1);
                 }
             }
-            close(finfo1);
         }
         else
         {
