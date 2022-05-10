@@ -529,10 +529,12 @@ int main(int argc, char **argv)
                     addQueue(&queue,componentes,task.cliente,arrayaux,espacos,pedidob,finfo1);
                 }
             }
+            else
+                close(finfo1);
         }
         else
         {
-            int finfo1 = open(task.cliente, O_WRONLY);
+            finfo1 = open(task.cliente, O_WRONLY);
             write(finfo1,serveroff,sizeof(serveroff));
             close(finfo1);
         }
