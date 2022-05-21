@@ -29,6 +29,10 @@ int main(int argc, char** argv)
         strcpy(task2.pedido,"acabei ");
         strcat(task2.pedido,task.pedido);
     }
+    task.argumentos = argc-1;
+    if(argc == 1)
+        task.argumentos++;
+    task2.argumentos = argc;
     int server = open("tmp/cliente_server",O_WRONLY);
     write(server,&task,sizeof(task));
     close(server);

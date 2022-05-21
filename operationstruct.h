@@ -22,6 +22,7 @@ typedef struct operations
 typedef struct task
 {
     char pedido[1024];
+    int argumentos;
     char cliente[1024];
 }TASK;
 

@@ -416,10 +416,7 @@ int main(int argc, char **argv)
         char *pedidoaux;
         pedidoaux = pedido;
         char *componentes[1024];
-        int espacos = 1;
-        for(int i = 0; pedidoaux[i] != '\0'; i++)
-            if(pedidoaux[i] == ' ')
-                espacos++;
+        int espacos = task.argumentos;
         for(int i = 0; i < espacos  ;i++)
         {
             componentes[i] = (char *) malloc(sizeof(char)* 1024);
