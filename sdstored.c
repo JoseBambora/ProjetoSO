@@ -377,10 +377,9 @@ int main(int argc, char **argv)
     while(readln(f1,buf,sizeof(buf)) > 0)
     {
         char *aux;
-        int n = numopera(strtok_r(buf," ",&aux)) + 1;
-        if(n > 0)
+        int n = numopera(strtok_r(buf," ",&aux));
+        if(n >= 0)
         {
-            n--;
             strcpy(operation.ope[n].operation,buf);
             operation.ope[n].max = atoi(strtok(aux,"\n"));
             operation.ope[n].number = 0;
@@ -463,6 +462,8 @@ int main(int argc, char **argv)
                         ant->next = aux;
                     else
                         queue = aux;
+                    for(int j = 0; j < aux2->espacos; j++)
+                        free(aux2->pedido[j]);
                     free(aux2);
                 }
                 else
